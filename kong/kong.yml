@@ -1,0 +1,66 @@
+_format_version: "2.1"
+
+services:
+  - name: client-service
+    url: http://siso_client:3000
+    routes:
+      - name: client-route
+        paths:
+          - /clients
+        strip_path: true        
+
+  - name: operateur-service
+    url: http://operateur-service:2002
+    routes:
+      - name: operateur-route
+        paths:
+          - /operateurs
+        strip_path: false
+
+  - name: transporteur-service
+    url: http://transporteur-service:3003
+    routes:
+      - name: transporteur-route
+        paths:
+          - /transporteurs
+        strip_path: false
+
+  - name: gps-service
+    url: http://gps-service:3004
+    routes:
+      - name: gps-route
+        paths:
+          - /gps
+        strip_path: false
+
+  - name: ai-service
+    url: http://ai-service:3005
+    routes:
+      - name: ai-route
+        paths:
+          - /ai
+        strip_path: false
+
+  - name: notification-service
+    url: http://notification-service:3006
+    routes:
+      - name: notification-route
+        paths:
+          - /notifications
+        strip_path: false
+
+  - name: admin-service
+    url: http://admin-service:3007
+    routes:
+      - name: admin-route
+        paths:
+          - /admin
+        strip_path: false
+
+  - name: reporting-service
+    url: http://reporting-service:3008
+    routes:
+      - name: reporting-route
+        paths:
+          - /reporting
+        strip_path: false

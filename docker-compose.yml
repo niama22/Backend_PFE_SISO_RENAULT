@@ -1,0 +1,182 @@
+version: '3.9'
+
+services:
+
+  postgres:
+    image: postgres:15
+    container_name: siso_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./databases/postgres:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - siso-network
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg15
+    container_name: siso_timescale
+    environment:
+      POSTGRES_DB: ${TIMESCALE_DB}
+      POSTGRES_USER: ${TIMESCALE_USER}
+      POSTGRES_PASSWORD: ${TIMESCALE_PASSWORD}
+    ports:
+      - "15432:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+    networks:
+      - siso-network
+
+  mongodb:
+    image: mongo:7
+    container_name: siso_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - siso-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: siso_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - siso-network
+
+  elasticsearch:
+    image: elasticsearch:8.12.0
+    container_name: siso_elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    networks:
+      - siso-network
+
+  minio:
+    image: minio/minio
+    container_name: siso_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - siso-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: siso_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - "2181:2181"
+    networks:
+      - siso-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: siso_kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+    networks:
+      - siso-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: siso_kafka_ui
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_CLUSTERS_0_NAME: siso-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    ports:
+      - "8085:8080"
+    networks:
+      - siso-network
+
+  client-service:
+    build: ./services/client-service
+    container_name: siso_client
+    env_file:
+      - ./services/client-service/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    expose:
+      - "3000"           # visible uniquement sur siso-network, plus exposé à l'hôte
+    restart: unless-stopped
+    networks:
+      - siso-network
+
+  kong:
+    build: ./kong
+    container_name: siso_kong
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /usr/local/kong/declarative/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+    depends_on:
+      - client-service   # Kong démarre après client-service
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    restart: unless-stopped
+    networks:
+      - siso-network
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: siso_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    networks:
+      - siso-network
+
+volumes:
+  postgres_data:
+  timescale_data:
+  mongo_data:
+  minio_data:
+
+networks:
+  siso-network:
+    driver: bridge
