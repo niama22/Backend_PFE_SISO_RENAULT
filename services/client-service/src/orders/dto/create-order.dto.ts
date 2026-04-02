@@ -10,24 +10,24 @@ import { Type } from 'class-transformer';
 
 export class OrderItemDto {
   @IsString()
-  vehicleModel: string;
+  vehicleModel!: string;
 
   @IsInt()
   @Min(1)
-  quantity: number;
+  quantity!: number;
 }
 
 export class CreateOrderDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)
-  items: OrderItemDto[];
+  items!: OrderItemDto[];
 
   @IsString()
-  deliveryAddress: string;
+  deliveryAddress!: string;
 
   @IsString()
-  deliveryCity: string;
+  deliveryCity!: string;
 
   @IsOptional()
   @IsString()

@@ -5,9 +5,9 @@ import { ConfigService } from '@nestjs/config';
 import { TokenBlacklistService } from './token-blacklist.service';
 
 export interface JwtPayload {
-  sub: string;       // client UUID
+  sub: string;
   email: string;
-  jti: string;       // JWT ID – required for revocation
+  jti: string;
   iat?: number;
   exp?: number;
 }
@@ -29,17 +29,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload) {
-    // 1. Basic payload shape check
     if (!payload?.sub || !payload?.email || !payload?.jti) {
-      throw new UnauthorizedException('Invalid token payload');
+      throw new UnauthorizedException('Payload token invalide');
     }
 
-    // 2. Check if this specific token has been revoked (logged out)
-    if (this.blacklist.isRevoked(payload.jti)) {
+    // Vérifie dans Redis si ce token a été révoqué (logout)
+    const revoked = await this.blacklist.isRevoked(payload.jti);
+    if (revoked) {
       throw new UnauthorizedException('Token révoqué – veuillez vous reconnecter');
     }
 
-    // req.user will contain this object
-    return { id: payload.sub, email: payload.email, jti: payload.jti, exp: payload.exp };
+    return {
+      id: payload.sub,
+      email: payload.email,
+      jti: payload.jti,
+      exp: payload.exp,
+    };
   }
 }

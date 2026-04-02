@@ -3,32 +3,31 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 @Entity('clients')
 export class Client {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column({ unique: true })
-  email: string;
+  email!: string;
 
   @Column()
-  password: string;
+  password!: string;
 
   @Column()
-  fullName: string;
+  fullName!: string;
 
   @Column({ nullable: true })
-  phone: string;
+  phone!: string;
 
   @Column({ nullable: true })
-  address: string;
+  address!: string;
 
   @Column({ nullable: true })
-  city: string; 
+  city!: string; 
 
   @Column({ default: true })
-  isActive: boolean;
+  isActive!: boolean;
 
   @CreateDateColumn()
-  createdAt: Date;
-
+  createdAt!:Date;
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt!:Date;
 }

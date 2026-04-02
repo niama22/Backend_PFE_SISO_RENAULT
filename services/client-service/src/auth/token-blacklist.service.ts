@@ -1,62 +1,69 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import Redis from 'ioredis';
 
 /**
- * Stores invalidated JWT JTI (JWT ID) values until their natural expiration.
+ * Stocke les JTI révoqués dans Redis avec un TTL automatique.
+ * Quand le TTL expire, Redis supprime l'entrée tout seul → zéro maintenance.
  *
- * ── Development / single-instance ──────────────────────────────────────────
- *   Uses an in-memory Set. Fast, zero dependencies, but lost on restart and
- *   NOT shared across multiple server instances.
- *
- * ── Production / multi-instance ────────────────────────────────────────────
- *   Replace the Set with a Redis client (ioredis / @nestjs/cache-manager).
- *   Store each jti with a TTL equal to the token's remaining lifetime:
- *
- *   await this.redis.set(`blacklist:${jti}`, '1', 'EX', ttlSeconds);
- *   const isBlocked = await this.redis.exists(`blacklist:${jti}`);
+ * Clé Redis : blacklist:<jti>
+ * Valeur    : "1"  (la valeur n'importe pas, seule la présence compte)
+ * TTL       : durée restante du token (exp - now) en secondes
  */
 @Injectable()
-export class TokenBlacklistService {
+export class TokenBlacklistService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(TokenBlacklistService.name);
+  private redis!: Redis;
 
-  // jti  →  timestamp (ms) when the entry expires and can be purged
-  private readonly blacklist = new Map<string, number>();
+  constructor(private readonly config: ConfigService) {}
+
+  // ─── Lifecycle ────────────────────────────────────────────────────────────
+
+  onModuleInit() {
+    this.redis = new Redis({
+      host: this.config.get<string>('REDIS_HOST', 'redis'),
+      port: this.config.get<number>('REDIS_PORT', 6379),
+      lazyConnect: true,
+    });
+
+    this.redis.on('connect', () =>
+      this.logger.log('✅ TokenBlacklistService connecté à Redis'),
+    );
+    this.redis.on('error', (err) =>
+      this.logger.error('❌ Erreur Redis blacklist:', err.message),
+    );
+  }
+
+  async onModuleDestroy() {
+    await this.redis.quit();
+  }
+
+  // ─── API publique ─────────────────────────────────────────────────────────
 
   /**
-   * Adds a token's JTI to the blacklist.
-   * @param jti   Unique JWT ID (jti claim)
-   * @param exp   Token expiration as Unix timestamp (seconds)
+   * Révoque un token : stocke son JTI dans Redis avec un TTL = durée restante.
+   * L'entrée disparaît automatiquement quand le token aurait expiré de toute façon.
+   *
+   * @param jti  Identifiant unique du token (claim `jti`)
+   * @param exp  Expiration Unix timestamp en secondes (claim `exp`)
    */
-  revoke(jti: string, exp: number): void {
-    const expiresAtMs = exp * 1000;
-    this.blacklist.set(jti, expiresAtMs);
-    this.logger.debug(`Token ${jti} revoked, expires at ${new Date(expiresAtMs).toISOString()}`);
-    this.purgeExpired();
+  async revoke(jti: string, exp: number): Promise<void> {
+    const ttlSeconds = exp - Math.floor(Date.now() / 1000);
+
+    if (ttlSeconds <= 0) {
+      this.logger.debug(`Token ${jti} déjà expiré naturellement, skip blacklist`);
+      return;
+    }
+
+    await this.redis.set(`blacklist:${jti}`, '1', 'EX', ttlSeconds);
+    this.logger.debug(`Token ${jti} révoqué, TTL=${ttlSeconds}s`);
   }
 
   /**
-   * Returns true if the token has been revoked (is on the blacklist).
+   * @returns true si le JTI est dans la blacklist Redis
    */
-  isRevoked(jti: string): boolean {
-    const expiresAt = this.blacklist.get(jti);
-    if (expiresAt === undefined) return false;
-
-    // Already past natural expiry → clean up and treat as not revoked
-    // (the JWT layer would have already rejected it anyway)
-    if (Date.now() > expiresAt) {
-      this.blacklist.delete(jti);
-      return false;
-    }
-
-    return true;
-  }
-
-  /** Removes entries whose tokens have naturally expired (housekeeping). */
-  private purgeExpired(): void {
-    const now = Date.now();
-    for (const [jti, expiresAt] of this.blacklist.entries()) {
-      if (now > expiresAt) {
-        this.blacklist.delete(jti);
-      }
-    }
+  async isRevoked(jti: string): Promise<boolean> {
+    const exists = await this.redis.exists(`blacklist:${jti}`);
+    return exists === 1;
   }
 }

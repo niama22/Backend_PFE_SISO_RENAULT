@@ -19,7 +19,9 @@ import { TokenBlacklistService } from './token-blacklist.service';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: '7d' },
+        signOptions: {
+          expiresIn: config.get<number>('JWT_EXPIRATION', 86400), // 24h par défaut
+        },
       }),
     }),
   ],
@@ -27,7 +29,7 @@ import { TokenBlacklistService } from './token-blacklist.service';
     AuthService,
     JwtStrategy,
     JwtAuthGuard,
-    TokenBlacklistService,   // ← added
+    TokenBlacklistService,  // ← gère sa propre connexion Redis via ioredis
   ],
   controllers: [AuthController],
   exports: [JwtAuthGuard, TokenBlacklistService],

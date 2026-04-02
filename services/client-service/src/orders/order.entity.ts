@@ -19,29 +19,29 @@ export enum OrderStatus {
 @Entity('orders')
 export class Order {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @ManyToOne(() => Client, { eager: true })
-  client: Client;
+  client!: Client;
 
   @Column('jsonb')
-  items: { vehicleModel: string; quantity: number }[];
+  items!: { vehicleModel: string; quantity: number }[];
 
   @Column({ type: 'enum', enum: OrderStatus, default: OrderStatus.PENDING })
-  status: OrderStatus;
+  status!: OrderStatus;
 
   @Column({ nullable: true })
-  deliveryAddress: string;
+  deliveryAddress!: string;
 
   @Column({ nullable: true })
-  deliveryCity: string;
+  deliveryCity!: string;
 
   @Column({ nullable: true })
-  notes: string;
+  notes!: string;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt!: Date;
 }
