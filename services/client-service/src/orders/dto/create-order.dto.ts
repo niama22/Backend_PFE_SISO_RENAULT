@@ -1,11 +1,18 @@
-import { IsArray, IsString, IsOptional, IsInt, Min, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsString,
+  IsOptional,
+  IsInt,
+  Min,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
-class OrderItemDto {
+export class OrderItemDto {
   @IsString()
   vehicleModel: string;
 
-  @IsInt()       
+  @IsInt()
   @Min(1)
   quantity: number;
 }
@@ -20,7 +27,7 @@ export class CreateOrderDto {
   deliveryAddress: string;
 
   @IsString()
-  deliveryCity: string; 
+  deliveryCity: string;
 
   @IsOptional()
   @IsString()

@@ -1,12 +1,17 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { MulterModule } from '@nestjs/platform-express';
+import { Order } from './order.entity';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
-import { Order } from './order.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Order])],
-  controllers: [OrdersController],
+  imports: [
+    TypeOrmModule.forFeature([Order]),
+    MulterModule.register({ dest: '/tmp' }), 
+  ],
   providers: [OrdersService],
+  controllers: [OrdersController],
+  exports: [OrdersService],
 })
 export class OrdersModule {}

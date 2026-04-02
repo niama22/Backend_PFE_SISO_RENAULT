@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+} from 'typeorm';
 import { Client } from '../clients/client.entity';
 
 export enum OrderStatus {
@@ -27,11 +34,14 @@ export class Order {
   deliveryAddress: string;
 
   @Column({ nullable: true })
-  deliveryCity: string; 
+  deliveryCity: string;
 
   @Column({ nullable: true })
   notes: string;
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }

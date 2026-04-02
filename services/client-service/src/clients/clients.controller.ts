@@ -16,12 +16,6 @@ import { RegisterClientDto } from './dto/register-client.dto';
 export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
-  // ─── POST /clients/register ── public ─────────────────────────────────────
-  @Post('register')
-  register(@Body() dto: RegisterClientDto) {
-    return this.clientsService.register(dto);
-  }
-
   // ─── GET /clients/me ── protégé ───────────────────────────────────────────
   @Get('me')
   @UseGuards(AuthGuard('jwt'))
