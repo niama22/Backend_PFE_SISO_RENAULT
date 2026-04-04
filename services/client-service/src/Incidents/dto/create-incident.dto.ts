@@ -4,11 +4,11 @@ import { IncidentType } from '../enums/incident-type.enum';
 
 export class CreateIncidentDto {
   @IsEnum(IncidentType)
-  type: IncidentType;
+  type!: IncidentType;
 
   @IsString()
   @MinLength(10, { message: 'Description trop courte (min 10 caractères)' })
-  description: string;
+  description!: string;
 
   @IsOptional()
   @IsString()
