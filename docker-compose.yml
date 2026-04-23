@@ -139,6 +139,33 @@ services:
     networks:
       - siso-network
 
+  gps-service:
+    build: ./services/gps-service
+    container_name: siso_gps
+    env_file:
+      - ./services/gps-service/.env
+    depends_on:
+      - kafka
+      - timescaledb
+    expose:
+      - "3004"
+    restart: unless-stopped
+    networks:
+      - siso-network
+
+  notification-service:
+    build: ./services/notification-service
+    container_name: notification-service
+    env_file:
+      - ./services/notification-service/.env
+    depends_on:
+      - kafka
+    expose:
+      - "3006"
+    restart: unless-stopped
+    networks:
+      - siso-network
+
   kong:
     build: ./kong
     container_name: siso_kong
