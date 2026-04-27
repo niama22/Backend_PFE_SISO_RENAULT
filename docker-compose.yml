@@ -50,7 +50,7 @@ services:
     image: redis:7-alpine
     container_name: siso_redis
     ports:
-      - "6379:6379"
+      - "8888:8888"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -139,6 +139,7 @@ services:
     networks:
       - siso-network
 
+
   kong:
     build: ./kong
     container_name: siso_kong
@@ -167,7 +168,7 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
-      - "5050:80"
+      - "7077:80"
     networks:
       - siso-network
 

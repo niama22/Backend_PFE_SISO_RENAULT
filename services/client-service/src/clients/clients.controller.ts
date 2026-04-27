@@ -37,3 +37,5 @@ export class ClientsController {
     return this.clientsService.deactivate(req.user.id);
   }
 }
+// ─────── POST ────────────────────────────────────────────────────
+
