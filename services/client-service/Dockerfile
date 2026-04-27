@@ -2,6 +2,7 @@ FROM node:20-alpine
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
-COPY . .
-RUN rm -rf dist && npm run build
-CMD ["npm", "run", "start"]
+ENV CHOKIDAR_USEPOLLING=true
+ENV CHOKIDAR_INTERVAL=1000
+ENV WATCHPACK_POLLING=true
+CMD ["npm", "run", "start:dev"]

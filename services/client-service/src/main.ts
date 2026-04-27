@@ -1,7 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
-
+// test hot reload
+// test hot reload
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
@@ -12,6 +13,6 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   await app.listen(3000);
-console.log('Client Service running on port 3000');
+console.log('Client Service running on port 3000 🚀');
 }
 bootstrap();

@@ -29,13 +29,13 @@ export class ClientsController {
   updateProfile(@Body() dto: Partial<RegisterClientDto>, @Request() req) {
     return this.clientsService.updateProfile(req.user.id, dto);
   }
-
+ 
   // ─── DELETE /clients/me ── protégé ────────────────────────────────────────
   @Delete('me')
   @UseGuards(AuthGuard('jwt'))
   deactivate(@Request() req) {
     return this.clientsService.deactivate(req.user.id);
   }
+
 }
-// ─────── POST ────────────────────────────────────────────────────
 
