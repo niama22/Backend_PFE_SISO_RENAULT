@@ -1,4 +1,4 @@
-name: CI - client-service (NestJS) + Docker images
+name: CI - client-service (NestJS)
 
 on:
   push:
@@ -18,9 +18,11 @@ jobs:
         shell: bash
 
     steps:
+      # ── 1. Récupérer le code ──────────────────────────────────────────
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ── 2. Node.js ───────────────────────────────────────────────────
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -28,53 +30,53 @@ jobs:
           cache: npm
           cache-dependency-path: services/client-service/package-lock.json
 
+      # ── 3. Installer les dépendances ─────────────────────────────────
       - name: Install dependencies
         working-directory: services/client-service
         run: npm ci
 
+      # ── 4. Lint (vérifie la qualité du code) ─────────────────────────
+      - name: Lint
+        working-directory: services/client-service
+        run: npm run lint
+        continue-on-error: false
+
+      # ── 5. Tests unitaires ───────────────────────────────────────────
       - name: Unit tests
         working-directory: services/client-service
         run: npm test
 
+      # ── 6. Tests avec couverture de code ────────────────────────────
+      - name: Test coverage
+        working-directory: services/client-service
+        run: npm run test:cov
+        continue-on-error: true   # ne bloque pas le CI mais affiche le rapport
+
+      # ── 7. Build NestJS ──────────────────────────────────────────────
       - name: Build (Nest)
         working-directory: services/client-service
         run: npm run build
 
+      # ── 8. Build images Docker ───────────────────────────────────────
       - name: Docker build (client-service)
         run: docker build -t siso/client-service:ci ./services/client-service
 
       - name: Docker build (kong)
         run: docker build -t siso/kong:ci ./kong
 
-  dockerhub-push:
-    # Optional: enable by setting repository variable ENABLE_DOCKERHUB_PUSH=true
-    if: github.ref == 'refs/heads/main' && vars.ENABLE_DOCKERHUB_PUSH == 'true'
-    needs: test-build
-    runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        shell: bash
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Docker login (Docker Hub)
-        uses: docker/login-action@v3
+      # ── 9. Scan de sécurité des images (Trivy) ───────────────────────
+      - name: Security scan - client-service
+        uses: aquasecurity/trivy-action@master
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          image-ref: siso/client-service:ci
+          format: table
+          exit-code: "0"          # 0 = affiche les vulnérabilités sans bloquer
+          severity: CRITICAL,HIGH
 
-      - name: Build and push images
-        run: |
-          TAG="${GITHUB_SHA::7}"
-          USER="${{ secrets.DOCKERHUB_USERNAME }}"
-
-          docker build -t "$USER/siso-client-service:$TAG" -t "$USER/siso-client-service:latest" ./services/client-service
-          docker build -t "$USER/siso-kong:$TAG" -t "$USER/siso-kong:latest" ./kong
-
-          docker push "$USER/siso-client-service:$TAG"
-          docker push "$USER/siso-client-service:latest"
-          docker push "$USER/siso-kong:$TAG"
-          docker push "$USER/siso-kong:latest"
+      - name: Security scan - kong
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: siso/kong:ci
+          format: table
+          exit-code: "0"
+          severity: CRITICAL,HIGH
