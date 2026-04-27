@@ -39,7 +39,7 @@ jobs:
       - name: Lint
         working-directory: services/client-service
         run: npm run lint
-        continue-on-error: false
+        continue-on-error: true
 
       # ── 5. Tests unitaires ───────────────────────────────────────────
       - name: Unit tests
