@@ -1,0 +1,80 @@
+name: CI - client-service (NestJS) + Docker images
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: services/client-service/package-lock.json
+
+      - name: Install dependencies
+        working-directory: services/client-service
+        run: npm ci
+
+      - name: Unit tests
+        working-directory: services/client-service
+        run: npm test
+
+      - name: Build (Nest)
+        working-directory: services/client-service
+        run: npm run build
+
+      - name: Docker build (client-service)
+        run: docker build -t siso/client-service:ci ./services/client-service
+
+      - name: Docker build (kong)
+        run: docker build -t siso/kong:ci ./kong
+
+  dockerhub-push:
+    # Optional: enable by setting repository variable ENABLE_DOCKERHUB_PUSH=true
+    if: github.ref == 'refs/heads/main' && vars.ENABLE_DOCKERHUB_PUSH == 'true'
+    needs: test-build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker login (Docker Hub)
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push images
+        run: |
+          TAG="${GITHUB_SHA::7}"
+          USER="${{ secrets.DOCKERHUB_USERNAME }}"
+
+          docker build -t "$USER/siso-client-service:$TAG" -t "$USER/siso-client-service:latest" ./services/client-service
+          docker build -t "$USER/siso-kong:$TAG" -t "$USER/siso-kong:latest" ./kong
+
+          docker push "$USER/siso-client-service:$TAG"
+          docker push "$USER/siso-client-service:latest"
+          docker push "$USER/siso-kong:$TAG"
+          docker push "$USER/siso-kong:latest"
