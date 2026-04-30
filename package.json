@@ -1,0 +1,12 @@
+{
+  "devDependencies": {
+    "@nestjs/testing": "^11.1.19",
+    "@types/jest": "^30.0.0",
+    "jest": "^30.3.0",
+    "ts-jest": "^29.4.9"
+  },
+  "dependencies": {
+    "@nestjs/microservices": "^11.1.19",
+    "kafkajs": "^2.2.4"
+  }
+}

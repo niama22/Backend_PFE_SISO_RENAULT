@@ -15,7 +15,7 @@ services:
       - name: operateur-route
         paths:
           - /operateurs
-        strip_path: false
+        strip_path: true
 
   - name: transporteur-service
     url: http://transporteur-service:3003

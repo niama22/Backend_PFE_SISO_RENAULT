@@ -3,9 +3,12 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Inject,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ClientKafka } from '@nestjs/microservices';
 import * as Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { Order, OrderStatus } from './order.entity';
@@ -14,29 +17,53 @@ import { UpdateOrderDto } from './dto/update-order.dto';
 import { ImportOrderDto } from './dto/import-order.dto';
 import { Client } from '../clients/client.entity';
 
-// ─── Expected CSV / Excel column names (case-insensitive) ─────────────────────
-// | vehicleModel | quantity | deliveryAddress | deliveryCity | notes |
-// ──────────────────────────────────────────────────────────────────────────────
-
 @Injectable()
-export class OrdersService {
+export class OrdersService implements OnModuleInit {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
+
+    @Inject('KAFKA_CLIENT')
+    private readonly kafkaClient: ClientKafka,
   ) {}
+
+  // Connecter le producer Kafka au démarrage du module
+  async onModuleInit() {
+    await this.kafkaClient.connect();
+  }
+
+  // ─── HELPER : publier une commande dans Kafka ──────────────────────────────
+  private publishOrder(order: Order): void {
+    this.kafkaClient.emit('orders.created', {
+      orderId:         order.id,
+      clientId:        order.client.id,
+      clientEmail:     order.client.email,
+      items:           order.items,
+      deliveryAddress: order.deliveryAddress,
+      deliveryCity:    order.deliveryCity,
+      notes:           order.notes,
+      status:          order.status,
+      createdAt:       order.createdAt,
+    });
+  }
 
   // ─── CREATE ───────────────────────────────────────────────────────────────
   async createOrder(dto: CreateOrderDto, client: Client): Promise<Order> {
     const order = this.orderRepository.create({
       client,
-      items: dto.items,
+      items:           dto.items,
       deliveryAddress: dto.deliveryAddress,
-      deliveryCity: dto.deliveryCity,
-      notes: dto.notes,
-      status: OrderStatus.PENDING,
+      deliveryCity:    dto.deliveryCity,
+      notes:           dto.notes,
+      status:          OrderStatus.PENDING,
     });
 
-    return this.orderRepository.save(order);
+    const saved = await this.orderRepository.save(order);
+
+    // ── Publier dans Kafka ──
+    this.publishOrder(saved);
+
+    return saved;
   }
 
   // ─── READ ALL (client) ────────────────────────────────────────────────────
@@ -80,7 +107,7 @@ export class OrdersService {
     return order;
   }
 
-  // ─── UPDATE (client can only edit PENDING orders) ─────────────────────────
+  // ─── UPDATE (client – PENDING uniquement) ─────────────────────────────────
   async updateOrder(
     id: string,
     dto: UpdateOrderDto,
@@ -95,12 +122,10 @@ export class OrdersService {
     }
 
     Object.assign(order, {
-      ...(dto.items !== undefined && { items: dto.items }),
-      ...(dto.deliveryAddress !== undefined && {
-        deliveryAddress: dto.deliveryAddress,
-      }),
-      ...(dto.deliveryCity !== undefined && { deliveryCity: dto.deliveryCity }),
-      ...(dto.notes !== undefined && { notes: dto.notes }),
+      ...(dto.items            !== undefined && { items:           dto.items }),
+      ...(dto.deliveryAddress  !== undefined && { deliveryAddress: dto.deliveryAddress }),
+      ...(dto.deliveryCity     !== undefined && { deliveryCity:    dto.deliveryCity }),
+      ...(dto.notes            !== undefined && { notes:           dto.notes }),
     });
 
     return this.orderRepository.save(order);
@@ -113,7 +138,7 @@ export class OrdersService {
     return this.orderRepository.save(order);
   }
 
-  // ─── DELETE (client – only PENDING) ──────────────────────────────────────
+  // ─── DELETE (client – PENDING uniquement) ────────────────────────────────
   async deleteOrder(id: string, clientId: string): Promise<{ message: string }> {
     const order = await this.getOrderByIdForClient(id, clientId);
 
@@ -127,7 +152,7 @@ export class OrdersService {
     return { message: `Commande #${id} supprimée avec succès` };
   }
 
-  // ─── DELETE (admin – any status) ─────────────────────────────────────────
+  // ─── DELETE (admin – tout statut) ────────────────────────────────────────
   async adminDeleteOrder(id: string): Promise<{ message: string }> {
     const order = await this.getOrderById(id);
     await this.orderRepository.remove(order);
@@ -162,7 +187,6 @@ export class OrdersService {
       );
     }
 
-    // Normalise column names to lowercase, trimmed keys
     const normalised = rows.map((row) => {
       const entry: Record<string, string> = {};
       for (const [k, v] of Object.entries(row)) {
@@ -171,7 +195,6 @@ export class OrdersService {
       return entry;
     });
 
-    // Build items from rows
     const items: { vehicleModel: string; quantity: number }[] = [];
     let fileDeliveryAddress: string | undefined;
     let fileDeliveryCity: string | undefined;
@@ -198,18 +221,11 @@ export class OrdersService {
 
       items.push({ vehicleModel, quantity });
 
-      // Pick address/city/notes from the first row if not supplied via DTO
       if (index === 0) {
         fileDeliveryAddress =
-          row['deliveryaddress'] ||
-          row['delivery_address'] ||
-          row['adresse'] ||
-          undefined;
+          row['deliveryaddress'] || row['delivery_address'] || row['adresse'] || undefined;
         fileDeliveryCity =
-          row['deliverycity'] ||
-          row['delivery_city'] ||
-          row['ville'] ||
-          undefined;
+          row['deliverycity'] || row['delivery_city'] || row['ville'] || undefined;
         fileNotes = row['notes'] || undefined;
       }
     }
@@ -218,22 +234,26 @@ export class OrdersService {
       client,
       items,
       deliveryAddress: dto.deliveryAddress ?? fileDeliveryAddress ?? '',
-      deliveryCity: dto.deliveryCity ?? fileDeliveryCity ?? '',
-      notes: dto.notes ?? fileNotes,
-      status: OrderStatus.PENDING,
+      deliveryCity:    dto.deliveryCity    ?? fileDeliveryCity    ?? '',
+      notes:           dto.notes           ?? fileNotes,
+      status:          OrderStatus.PENDING,
     });
 
-    return this.orderRepository.save(order);
+    const saved = await this.orderRepository.save(order);
+
+    // ── Publier dans Kafka ──
+    this.publishOrder(saved);
+
+    return saved;
   }
 
-  // ─── FILE PARSER (CSV + Excel) ────────────────────────────────────────────
+  // ─── FILE PARSER ──────────────────────────────────────────────────────────
   private parseFile(file: Express.Multer.File): Record<string, unknown>[] {
-    const mimeType = file.mimetype;
+    const mimeType   = file.mimetype;
     const originalName = file.originalname.toLowerCase();
 
     const isExcel =
-      mimeType ===
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
       mimeType === 'application/vnd.ms-excel' ||
       originalName.endsWith('.xlsx') ||
       originalName.endsWith('.xls');
@@ -243,16 +263,11 @@ export class OrdersService {
       mimeType === 'application/csv' ||
       originalName.endsWith('.csv');
 
-    if (isExcel) {
-      return this.parseExcel(file.buffer);
-    }
-
-    if (isCsv) {
-      return this.parseCsv(file.buffer.toString('utf-8'));
-    }
+    if (isExcel) return this.parseExcel(file.buffer);
+    if (isCsv)   return this.parseCsv(file.buffer.toString('utf-8'));
 
     throw new BadRequestException(
-      'Format de fichier non supporté. Utilisez CSV (.csv) ou Excel (.xlsx / .xls)',
+      'Format non supporté. Utilisez CSV (.csv) ou Excel (.xlsx / .xls)',
     );
   }
 
@@ -264,12 +279,10 @@ export class OrdersService {
       throw new BadRequestException('Le fichier Excel ne contient aucune feuille');
     }
 
-    const sheet = workbook.Sheets[sheetName];
-    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
-      defval: '',
-    });
-
-    return rows;
+    return XLSX.utils.sheet_to_json<Record<string, unknown>>(
+      workbook.Sheets[sheetName],
+      { defval: '' },
+    );
   }
 
   private parseCsv(content: string): Record<string, unknown>[] {

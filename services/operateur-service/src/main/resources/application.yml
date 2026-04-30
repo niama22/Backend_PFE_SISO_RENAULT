@@ -1,0 +1,25 @@
+server:
+  port: 8082
+
+spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKER:kafka:9092}
+    consumer:
+      group-id: operateur-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+# ─── Sécurité JWT ─────────────────────────────────────────────────────────────
+jwt:
+  # Changer cette clé en production (min 32 caractères)
+  secret: ${JWT_SECRET:SisoSecretKey2025!ChangeThisInProd!!}
+  expiration-ms: 86400000   # 24 heures
+
+# ─── Compte administrateur par défaut ────────────────────────────────────────
+# L'admin se connecte et crée ensuite les comptes opérateur / responsable.
+# Surcharger via variables d'environnement en production.
+app:
+  admin:
+    email: ${ADMIN_EMAIL:admin@siso.com}
+    password: ${ADMIN_PASSWORD:Admin@2025!}
