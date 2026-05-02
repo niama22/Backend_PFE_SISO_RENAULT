@@ -18,12 +18,12 @@ services:
         strip_path: true
 
   - name: transporteur-service
-    url: http://transporteur-service:3003
+    url: http://siso_transporteur:3003
     routes:
       - name: transporteur-route
         paths:
           - /transporteurs
-        strip_path: false
+        strip_path: true
 
   - name: gps-service
     url: http://gps-service:3004
