@@ -33,8 +33,8 @@ export class ClientsService {
     });
 
     const saved = await this.clientRepository.save(client);
-    const result = { ...saved };
-    delete result.password;
+    const { password: _p, ...result } = saved;
+    void _p;
     return result;
   }
 
@@ -57,8 +57,8 @@ export class ClientsService {
   // ─── Profil (sans password) ───────────────────────────────────────────────
   async getProfile(id: string): Promise<Omit<Client, 'password'>> {
     const client = await this.findById(id);
-    const result = { ...client };
-    delete result.password;
+    const { password: _p, ...result } = client;
+    void _p;
     return result;
   }
 
@@ -75,8 +75,8 @@ export class ClientsService {
 
     Object.assign(client, dto);
     const saved = await this.clientRepository.save(client);
-    const result = { ...saved };
-    delete result.password;
+    const { password: _p, ...result } = saved;
+    void _p;
     return result;
   }
 

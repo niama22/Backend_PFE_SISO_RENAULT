@@ -11,16 +11,25 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return super.canActivate(context);
   }
 
-  handleRequest(
+  handleRequest<TUser>(
     err: unknown,
     user: unknown,
-    info: { message?: string } | undefined,
-  ) {
+    info: unknown,
+    _context: ExecutionContext,
+    _status?: unknown,
+  ): TUser {
+    void _context;
+    void _status;
     if (err || !user) {
-      throw new UnauthorizedException(
-        info?.message ?? 'Token manquant ou expiré',
-      );
+      const message =
+        info &&
+        typeof info === 'object' &&
+        'message' in info &&
+        typeof (info as { message?: unknown }).message === 'string'
+          ? (info as { message: string }).message
+          : 'Token manquant ou expiré';
+      throw new UnauthorizedException(message);
     }
-    return user; // → devient req.user dans les controllers
+    return user as TUser;
   }
 }
