@@ -35,15 +35,15 @@ export class OrdersService implements OnModuleInit {
   // ─── HELPER : publier une commande dans Kafka ──────────────────────────────
   private publishOrder(order: Order): void {
     this.kafkaClient.emit('orders.created', {
-      orderId:         order.id,
-      clientId:        order.client.id,
-      clientEmail:     order.client.email,
-      items:           order.items,
+      orderId: order.id,
+      clientId: order.client.id,
+      clientEmail: order.client.email,
+      items: order.items,
       deliveryAddress: order.deliveryAddress,
-      deliveryCity:    order.deliveryCity,
-      notes:           order.notes,
-      status:          order.status,
-      createdAt:       order.createdAt,
+      deliveryCity: order.deliveryCity,
+      notes: order.notes,
+      status: order.status,
+      createdAt: order.createdAt,
     });
   }
 
@@ -51,11 +51,11 @@ export class OrdersService implements OnModuleInit {
   async createOrder(dto: CreateOrderDto, client: Client): Promise<Order> {
     const order = this.orderRepository.create({
       client,
-      items:           dto.items,
+      items: dto.items,
       deliveryAddress: dto.deliveryAddress,
-      deliveryCity:    dto.deliveryCity,
-      notes:           dto.notes,
-      status:          OrderStatus.PENDING,
+      deliveryCity: dto.deliveryCity,
+      notes: dto.notes,
+      status: OrderStatus.PENDING,
     });
 
     const saved = await this.orderRepository.save(order);
@@ -122,10 +122,12 @@ export class OrdersService implements OnModuleInit {
     }
 
     Object.assign(order, {
-      ...(dto.items            !== undefined && { items:           dto.items }),
-      ...(dto.deliveryAddress  !== undefined && { deliveryAddress: dto.deliveryAddress }),
-      ...(dto.deliveryCity     !== undefined && { deliveryCity:    dto.deliveryCity }),
-      ...(dto.notes            !== undefined && { notes:           dto.notes }),
+      ...(dto.items !== undefined && { items: dto.items }),
+      ...(dto.deliveryAddress !== undefined && {
+        deliveryAddress: dto.deliveryAddress,
+      }),
+      ...(dto.deliveryCity !== undefined && { deliveryCity: dto.deliveryCity }),
+      ...(dto.notes !== undefined && { notes: dto.notes }),
     });
 
     return this.orderRepository.save(order);
@@ -139,7 +141,10 @@ export class OrdersService implements OnModuleInit {
   }
 
   // ─── DELETE (client – PENDING uniquement) ────────────────────────────────
-  async deleteOrder(id: string, clientId: string): Promise<{ message: string }> {
+  async deleteOrder(
+    id: string,
+    clientId: string,
+  ): Promise<{ message: string }> {
     const order = await this.getOrderByIdForClient(id, clientId);
 
     if (order.status !== OrderStatus.PENDING) {
@@ -190,7 +195,13 @@ export class OrdersService implements OnModuleInit {
     const normalised = rows.map((row) => {
       const entry: Record<string, string> = {};
       for (const [k, v] of Object.entries(row)) {
-        entry[k.trim().toLowerCase()] = String(v ?? '').trim();
+        const normalizedValue =
+          typeof v === 'string' ||
+          typeof v === 'number' ||
+          typeof v === 'boolean'
+            ? String(v)
+            : '';
+        entry[k.trim().toLowerCase()] = normalizedValue.trim();
       }
       return entry;
     });
@@ -202,7 +213,10 @@ export class OrdersService implements OnModuleInit {
 
     for (const [index, row] of normalised.entries()) {
       const vehicleModel =
-        row['vehiclemodel'] || row['vehicle_model'] || row['modele'] || row['model'];
+        row['vehiclemodel'] ||
+        row['vehicle_model'] ||
+        row['modele'] ||
+        row['model'];
       const quantityRaw =
         row['quantity'] || row['quantite'] || row['quantité'] || row['qty'];
 
@@ -223,9 +237,15 @@ export class OrdersService implements OnModuleInit {
 
       if (index === 0) {
         fileDeliveryAddress =
-          row['deliveryaddress'] || row['delivery_address'] || row['adresse'] || undefined;
+          row['deliveryaddress'] ||
+          row['delivery_address'] ||
+          row['adresse'] ||
+          undefined;
         fileDeliveryCity =
-          row['deliverycity'] || row['delivery_city'] || row['ville'] || undefined;
+          row['deliverycity'] ||
+          row['delivery_city'] ||
+          row['ville'] ||
+          undefined;
         fileNotes = row['notes'] || undefined;
       }
     }
@@ -234,9 +254,9 @@ export class OrdersService implements OnModuleInit {
       client,
       items,
       deliveryAddress: dto.deliveryAddress ?? fileDeliveryAddress ?? '',
-      deliveryCity:    dto.deliveryCity    ?? fileDeliveryCity    ?? '',
-      notes:           dto.notes           ?? fileNotes,
-      status:          OrderStatus.PENDING,
+      deliveryCity: dto.deliveryCity ?? fileDeliveryCity ?? '',
+      notes: dto.notes ?? fileNotes,
+      status: OrderStatus.PENDING,
     });
 
     const saved = await this.orderRepository.save(order);
@@ -249,11 +269,12 @@ export class OrdersService implements OnModuleInit {
 
   // ─── FILE PARSER ──────────────────────────────────────────────────────────
   private parseFile(file: Express.Multer.File): Record<string, unknown>[] {
-    const mimeType   = file.mimetype;
+    const mimeType = file.mimetype;
     const originalName = file.originalname.toLowerCase();
 
     const isExcel =
-      mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      mimeType ===
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
       mimeType === 'application/vnd.ms-excel' ||
       originalName.endsWith('.xlsx') ||
       originalName.endsWith('.xls');
@@ -264,7 +285,7 @@ export class OrdersService implements OnModuleInit {
       originalName.endsWith('.csv');
 
     if (isExcel) return this.parseExcel(file.buffer);
-    if (isCsv)   return this.parseCsv(file.buffer.toString('utf-8'));
+    if (isCsv) return this.parseCsv(file.buffer.toString('utf-8'));
 
     throw new BadRequestException(
       'Format non supporté. Utilisez CSV (.csv) ou Excel (.xlsx / .xls)',
@@ -276,7 +297,9 @@ export class OrdersService implements OnModuleInit {
     const sheetName = workbook.SheetNames[0];
 
     if (!sheetName) {
-      throw new BadRequestException('Le fichier Excel ne contient aucune feuille');
+      throw new BadRequestException(
+        'Le fichier Excel ne contient aucune feuille',
+      );
     }
 
     return XLSX.utils.sheet_to_json<Record<string, unknown>>(

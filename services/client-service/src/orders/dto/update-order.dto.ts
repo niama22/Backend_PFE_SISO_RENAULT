@@ -2,9 +2,7 @@ import {
   IsArray,
   IsString,
   IsOptional,
-  IsInt,
   IsEnum,
-  Min,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';

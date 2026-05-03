@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
 @Entity('clients')
 export class Client {
@@ -21,13 +27,13 @@ export class Client {
   address!: string;
 
   @Column({ nullable: true })
-  city!: string; 
+  city!: string;
 
   @Column({ default: true })
   isActive!: boolean;
 
   @CreateDateColumn()
-  createdAt!:Date;
+  createdAt!: Date;
   @UpdateDateColumn()
-  updatedAt!:Date;
+  updatedAt!: Date;
 }

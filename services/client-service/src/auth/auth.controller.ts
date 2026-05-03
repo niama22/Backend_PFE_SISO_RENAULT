@@ -13,34 +13,34 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
+type AuthenticatedRequest = { user: { jti: string; exp: number } };
+
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
-
-  
   @Post('register')
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
   //test
-@Get('test')
-test() {
-  return "hello niama";
-}
+  @Get('test')
+  test() {
+    return 'hello niama';
+  }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
-//test
+  //test
 
   @Post('logout')
   @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.OK)
-  logout(@Request() req) {
+  logout(@Request() req: AuthenticatedRequest) {
     return this.authService.logout(req.user.jti, req.user.exp);
   }
 }

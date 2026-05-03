@@ -11,7 +11,7 @@ import { IncidentsModule } from './Incidents/incidents.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',  // ← ajout explicite
+      envFilePath: '.env', // ← ajout explicite
     }),
 
     TypeOrmModule.forRootAsync({

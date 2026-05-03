@@ -29,6 +29,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { IncidentStatus } from './enums/incident-status.enum';
 import { IncidentType } from './enums/incident-type.enum';
 
+type AuthenticatedRequest = { user: { id: string } };
+
 // Configuration des uploads
 const FILE_UPLOAD_CONFIG = {
   maxFiles: 5,
@@ -50,7 +52,10 @@ export class IncidentsController {
   // ─────────────────────────────────────────────────────────────
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async create(@Req() req, @Body() dto: CreateIncidentDto) {
+  async create(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CreateIncidentDto,
+  ) {
     this.logger.debug(`Creating incident for user ${req.user.id}`);
     return this.incidentsService.create(req.user.id, dto);
   }
@@ -72,13 +77,16 @@ export class IncidentsController {
       }),
       fileFilter: (req, file, cb) => {
         const isValid = FILE_UPLOAD_CONFIG.allowedFormats.test(
-          extname(file.originalname).toLowerCase()
+          extname(file.originalname).toLowerCase(),
         );
-        
+
         if (!isValid) {
-          cb(new BadRequestException(
-            `Format non supporté. Formats autorisés: jpeg, jpg, png, pdf`
-          ), false);
+          cb(
+            new BadRequestException(
+              `Format non supporté. Formats autorisés: jpeg, jpg, png, pdf`,
+            ),
+            false,
+          );
         } else {
           cb(null, true);
         }
@@ -88,7 +96,7 @@ export class IncidentsController {
   )
   async uploadAttachments(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
     if (!files?.length) {
@@ -96,8 +104,8 @@ export class IncidentsController {
     }
 
     this.logger.debug(`Uploading ${files.length} files for incident ${id}`);
-    
-    const urls = files.map(file => `/uploads/incidents/${file.filename}`);
+
+    const urls = files.map((file) => `/uploads/incidents/${file.filename}`);
     return this.incidentsService.addAttachments(id, req.user.id, urls);
   }
 
@@ -109,14 +117,18 @@ export class IncidentsController {
   @HttpCode(HttpStatus.OK)
   async removeAttachment(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body('url') attachmentUrl: string,
   ) {
     if (!attachmentUrl) {
       throw new BadRequestException('Attachment URL is required');
     }
-    
-    return this.incidentsService.removeAttachment(id, req.user.id, attachmentUrl);
+
+    return this.incidentsService.removeAttachment(
+      id,
+      req.user.id,
+      attachmentUrl,
+    );
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -124,7 +136,7 @@ export class IncidentsController {
   // ✅ Client consulte TOUS ses incidents
   // ─────────────────────────────────────────────────────────────
   @Get()
-  async findAll(@Req() req) {
+  async findAll(@Req() req: AuthenticatedRequest) {
     this.logger.debug(`Fetching all incidents for user ${req.user.id}`);
     return this.incidentsService.findByClient(req.user.id);
   }
@@ -134,7 +146,7 @@ export class IncidentsController {
   // ✅ Client consulte ses statistiques
   // ─────────────────────────────────────────────────────────────
   @Get('stats')
-  async getStats(@Req() req) {
+  async getStats(@Req() req: AuthenticatedRequest) {
     this.logger.debug(`Fetching stats for user ${req.user.id}`);
     return this.incidentsService.getClientStats(req.user.id);
   }
@@ -146,7 +158,7 @@ export class IncidentsController {
   @Get(':id')
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     this.logger.debug(`Fetching incident ${id} for user ${req.user.id}`);
     return this.incidentsService.findOne(id, req.user.id);
@@ -159,7 +171,7 @@ export class IncidentsController {
   @Patch(':id')
   async update(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
     @Body() dto: UpdateIncidentDto,
   ) {
     this.logger.debug(`Updating incident ${id} for user ${req.user.id}`);
@@ -174,7 +186,7 @@ export class IncidentsController {
   @HttpCode(HttpStatus.OK)
   async cancel(
     @Param('id', ParseUUIDPipe) id: string,
-    @Req() req,
+    @Req() req: AuthenticatedRequest,
   ) {
     this.logger.debug(`Cancelling incident ${id} for user ${req.user.id}`);
     return this.incidentsService.cancel(id, req.user.id);
@@ -183,7 +195,7 @@ export class IncidentsController {
   // ─────────────────────────────────────────────────────────────
   // 👑 ADMIN ROUTES (à séparer dans un controller admin)
   // ─────────────────────────────────────────────────────────────
-  
+
   // GET /incidents/admin/all
   @Get('admin/all')
   @UseGuards(JwtAuthGuard) // Ajouter AdminGuard

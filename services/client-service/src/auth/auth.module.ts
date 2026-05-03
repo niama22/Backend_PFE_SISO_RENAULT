@@ -29,7 +29,7 @@ import { TokenBlacklistService } from './token-blacklist.service';
     AuthService,
     JwtStrategy,
     JwtAuthGuard,
-    TokenBlacklistService,  // ← gère sa propre connexion Redis via ioredis
+    TokenBlacklistService, // ← gère sa propre connexion Redis via ioredis
   ],
   controllers: [AuthController],
   exports: [JwtAuthGuard, TokenBlacklistService],

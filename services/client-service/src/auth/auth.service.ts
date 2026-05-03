@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { Client } from '../clients/client.entity';
@@ -20,11 +21,14 @@ export class AuthService {
     private clientRepo: Repository<Client>,
     private jwtService: JwtService,
     private blacklist: TokenBlacklistService,
+    private configService: ConfigService,
   ) {}
 
   // ─── REGISTER ─────────────────────────────────────────────────────────────
   async register(dto: RegisterDto) {
-    const exists = await this.clientRepo.findOne({ where: { email: dto.email } });
+    const exists = await this.clientRepo.findOne({
+      where: { email: dto.email },
+    });
     if (exists) throw new ConflictException('Email déjà utilisé');
 
     const hashed = await bcrypt.hash(dto.password, 10);
@@ -53,7 +57,9 @@ export class AuthService {
 
   // ─── LOGIN ────────────────────────────────────────────────────────────────
   async login(dto: LoginDto) {
-    const client = await this.clientRepo.findOne({ where: { email: dto.email } });
+    const client = await this.clientRepo.findOne({
+      where: { email: dto.email },
+    });
     if (!client) throw new UnauthorizedException('Identifiants invalides');
 
     const valid = await bcrypt.compare(dto.password, client.password);
@@ -78,9 +84,10 @@ export class AuthService {
 
   // ─── HELPER ───────────────────────────────────────────────────────────────
   private signToken(clientId: string, email: string): string {
+    const expiresIn = this.configService.get<number>('JWT_EXPIRATION', 86400);
     return this.jwtService.sign(
       { sub: clientId, email, jti: randomUUID() },
-      { expiresIn: `${this.jwtService['options']?.signOptions?.expiresIn ?? '86400s'}` },
+      { expiresIn },
     );
   }
 }

@@ -1,11 +1,11 @@
 // incidents.module.ts
-import { Module }           from '@nestjs/common';
-import { TypeOrmModule }    from '@nestjs/typeorm';
-import { MulterModule }     from '@nestjs/platform-express';
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { MulterModule } from '@nestjs/platform-express';
 
-import { Incident }              from './entities/incident.entity';
-import { IncidentsController }   from './incidents.controller';
-import { IncidentsService }      from './incidents.service';
+import { Incident } from './entities/incident.entity';
+import { IncidentsController } from './incidents.controller';
+import { IncidentsService } from './incidents.service';
 
 @Module({
   imports: [
@@ -18,7 +18,7 @@ import { IncidentsService }      from './incidents.service';
     }),
   ],
   controllers: [IncidentsController],
-  providers:   [IncidentsService],
+  providers: [IncidentsService],
 
   // 🔁 Exporte le service si d'autres modules en ont besoin
   // ex: NotificationsModule, AdminModule

@@ -1,10 +1,10 @@
 // incidents.service.ts
-import { 
-  Injectable, 
-  NotFoundException, 
-  ForbiddenException, 
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
   BadRequestException,
-  Logger 
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -38,11 +38,11 @@ export class IncidentsService {
     });
 
     const saved = await this.incidentRepo.save(incident);
-    
+
     this.logger.log(`New incident created: ${saved.id} by client ${clientId}`);
-    
+
     // 🔔 Notifier l'admin
-    await this.notifyAdmin(saved);
+    this.notifyAdmin(saved);
 
     return saved;
   }
@@ -57,7 +57,7 @@ export class IncidentsService {
 
     if (incident.status !== IncidentStatus.PENDING) {
       throw new BadRequestException(
-        'Cannot add attachments to an incident that is already being processed'
+        'Cannot add attachments to an incident that is already being processed',
       );
     }
 
@@ -65,9 +65,11 @@ export class IncidentsService {
     incident.attachments = [...currentAttachments, ...fileUrls];
 
     const saved = await this.incidentRepo.save(incident);
-    
-    this.logger.debug(`Added ${fileUrls.length} attachments to incident ${incidentId}`);
-    
+
+    this.logger.debug(
+      `Added ${fileUrls.length} attachments to incident ${incidentId}`,
+    );
+
     return saved;
   }
 
@@ -81,13 +83,13 @@ export class IncidentsService {
 
     if (incident.status !== IncidentStatus.PENDING) {
       throw new BadRequestException(
-        'Cannot remove attachments from an incident that is already being processed'
+        'Cannot remove attachments from an incident that is already being processed',
       );
     }
 
     const initialLength = incident.attachments?.length || 0;
     incident.attachments = (incident.attachments || []).filter(
-      url => url !== attachmentUrl
+      (url) => url !== attachmentUrl,
     );
 
     if (incident.attachments.length === initialLength) {
@@ -99,24 +101,32 @@ export class IncidentsService {
       // Extraire le nom du fichier de l'URL
       const urlParts = attachmentUrl.split('/');
       const filename = urlParts[urlParts.length - 1];
-      
+
       // Vérifier que filename n'est pas undefined
       if (filename && filename !== '') {
-        const filePath = path.join(process.cwd(), 'uploads', 'incidents', filename);
-        
+        const filePath = path.join(
+          process.cwd(),
+          'uploads',
+          'incidents',
+          filename,
+        );
+
         // Vérifier si le fichier existe avant de le supprimer
         try {
           await fs.access(filePath);
           await fs.unlink(filePath);
           this.logger.debug(`Deleted file: ${filePath}`);
-        } catch (error) {
+        } catch {
           this.logger.warn(`File not found or already deleted: ${filePath}`);
         }
       } else {
         this.logger.warn(`Invalid attachment URL format: ${attachmentUrl}`);
       }
     } catch (error) {
-      this.logger.warn(`Failed to delete file for URL: ${attachmentUrl}`, error);
+      this.logger.warn(
+        `Failed to delete file for URL: ${attachmentUrl}`,
+        error,
+      );
     }
 
     return this.incidentRepo.save(incident);
@@ -137,7 +147,7 @@ export class IncidentsService {
     if (!incident) {
       throw new NotFoundException(`Incident with ID ${id} not found`);
     }
-    
+
     if (incident.clientId !== clientId) {
       throw new ForbiddenException('Access denied to this incident');
     }
@@ -156,26 +166,29 @@ export class IncidentsService {
     // Vérifier que l'incident peut être modifié
     if (incident.status !== IncidentStatus.PENDING) {
       throw new ForbiddenException(
-        'Cannot modify an incident that is already being processed'
+        'Cannot modify an incident that is already being processed',
       );
     }
 
     // Seuls certains champs peuvent être modifiés par le client
     const allowedUpdates: Partial<UpdateIncidentDto> = {};
-    
+
     if (dto.type !== undefined) allowedUpdates.type = dto.type;
-    if (dto.description !== undefined) allowedUpdates.description = dto.description;
+    if (dto.description !== undefined)
+      allowedUpdates.description = dto.description;
     if (dto.orderId !== undefined) allowedUpdates.orderId = dto.orderId;
-    if (dto.deliveryId !== undefined) allowedUpdates.deliveryId = dto.deliveryId;
-    if (dto.attachments !== undefined) allowedUpdates.attachments = dto.attachments;
+    if (dto.deliveryId !== undefined)
+      allowedUpdates.deliveryId = dto.deliveryId;
+    if (dto.attachments !== undefined)
+      allowedUpdates.attachments = dto.attachments;
 
     // Appliquer les modifications
     Object.assign(incident, allowedUpdates);
-    
+
     const updated = await this.incidentRepo.save(incident);
-    
+
     this.logger.debug(`Incident ${id} updated by client ${clientId}`);
-    
+
     return updated;
   }
 
@@ -185,19 +198,19 @@ export class IncidentsService {
 
     if (incident.status !== IncidentStatus.PENDING) {
       throw new ForbiddenException(
-        'Cannot cancel an incident that is already being processed'
+        'Cannot cancel an incident that is already being processed',
       );
     }
 
     incident.status = IncidentStatus.REJECTED;
-    
+
     const cancelled = await this.incidentRepo.save(incident);
-    
+
     this.logger.log(`Incident ${id} cancelled by client ${clientId}`);
-    
+
     // Nettoyer les fichiers
     await this.cleanupAttachments(cancelled.attachments || []);
-    
+
     return cancelled;
   }
 
@@ -243,7 +256,7 @@ export class IncidentsService {
     this.validateStatusTransition(incident.status, status);
 
     incident.status = status;
-    
+
     if (adminNote) {
       incident.adminNote = adminNote;
     }
@@ -253,12 +266,12 @@ export class IncidentsService {
     }
 
     const updated = await this.incidentRepo.save(incident);
-    
+
     this.logger.log(`Incident ${id} status updated to ${status} by admin`);
-    
+
     // Notifier le client du changement de statut
-    await this.notifyClient(updated);
-    
+    this.notifyClient(updated);
+
     return updated;
   }
 
@@ -270,16 +283,22 @@ export class IncidentsService {
     recent: Incident[];
   }> {
     const incidents = await this.findByClient(clientId);
-    
-    const byStatus = incidents.reduce((acc, incident) => {
-      acc[incident.status] = (acc[incident.status] || 0) + 1;
-      return acc;
-    }, {} as Record<IncidentStatus, number>);
 
-    const byType = incidents.reduce((acc, incident) => {
-      acc[incident.type] = (acc[incident.type] || 0) + 1;
-      return acc;
-    }, {} as Record<IncidentType, number>);
+    const byStatus = incidents.reduce(
+      (acc, incident) => {
+        acc[incident.status] = (acc[incident.status] || 0) + 1;
+        return acc;
+      },
+      {} as Record<IncidentStatus, number>,
+    );
+
+    const byType = incidents.reduce(
+      (acc, incident) => {
+        acc[incident.type] = (acc[incident.type] || 0) + 1;
+        return acc;
+      },
+      {} as Record<IncidentType, number>,
+    );
 
     return {
       total: incidents.length,
@@ -290,9 +309,11 @@ export class IncidentsService {
   }
 
   // 🔔 Notification admin
-  private async notifyAdmin(incident: Incident): Promise<void> {
-    this.logger.log(`[ALERT] New ${incident.type} incident from client ${incident.clientId}`);
-    
+  private notifyAdmin(incident: Incident): void {
+    this.logger.log(
+      `[ALERT] New ${incident.type} incident from client ${incident.clientId}`,
+    );
+
     // À connecter avec votre système de notification
     // await this.emailService.sendAdminNotification({
     //   subject: `New Incident: ${incident.type}`,
@@ -302,9 +323,11 @@ export class IncidentsService {
   }
 
   // 🔔 Notifier le client
-  private async notifyClient(incident: Incident): Promise<void> {
-    this.logger.log(`[NOTIFICATION] Incident ${incident.id} status: ${incident.status}`);
-    
+  private notifyClient(incident: Incident): void {
+    this.logger.log(
+      `[NOTIFICATION] Incident ${incident.id} status: ${incident.status}`,
+    );
+
     // À connecter avec votre système de notification
     // await this.notificationService.notifyClient(incident.clientId, {
     //   incidentId: incident.id,
@@ -320,20 +343,27 @@ export class IncidentsService {
         // Extraire le nom du fichier de l'URL
         const urlParts = attachment.split('/');
         const filename = urlParts[urlParts.length - 1];
-        
+
         // Vérifier que filename est valide
         if (filename && filename !== '') {
-          const filePath = path.join(process.cwd(), 'uploads', 'incidents', filename);
-          
+          const filePath = path.join(
+            process.cwd(),
+            'uploads',
+            'incidents',
+            filename,
+          );
+
           try {
             await fs.access(filePath);
             await fs.unlink(filePath);
             this.logger.debug(`Cleaned up file: ${filePath}`);
-          } catch (error) {
+          } catch {
             this.logger.warn(`File not found during cleanup: ${filePath}`);
           }
         } else {
-          this.logger.warn(`Invalid attachment URL during cleanup: ${attachment}`);
+          this.logger.warn(
+            `Invalid attachment URL during cleanup: ${attachment}`,
+          );
         }
       } catch (error) {
         this.logger.warn(`Failed to delete attachment: ${attachment}`, error);
@@ -348,17 +378,23 @@ export class IncidentsService {
   ): void {
     // Définir les transitions valides
     const validTransitions: Record<IncidentStatus, IncidentStatus[]> = {
-      [IncidentStatus.PENDING]: [IncidentStatus.REVIEWING, IncidentStatus.REJECTED],
-      [IncidentStatus.REVIEWING]: [IncidentStatus.RESOLVED, IncidentStatus.REJECTED],
+      [IncidentStatus.PENDING]: [
+        IncidentStatus.REVIEWING,
+        IncidentStatus.REJECTED,
+      ],
+      [IncidentStatus.REVIEWING]: [
+        IncidentStatus.RESOLVED,
+        IncidentStatus.REJECTED,
+      ],
       [IncidentStatus.RESOLVED]: [],
       [IncidentStatus.REJECTED]: [],
     };
 
     const allowed = validTransitions[currentStatus];
-    
+
     if (!allowed.includes(newStatus)) {
       throw new BadRequestException(
-        `Cannot transition from ${currentStatus} to ${newStatus}`
+        `Cannot transition from ${currentStatus} to ${newStatus}`,
       );
     }
   }

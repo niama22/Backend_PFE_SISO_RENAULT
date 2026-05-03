@@ -7,11 +7,10 @@ import {
   MinLength,
   IsUrl,
 } from 'class-validator';
-import { IncidentType }   from '../enums/incident-type.enum';
+import { IncidentType } from '../enums/incident-type.enum';
 import { IncidentStatus } from '../enums/incident-status.enum';
 
 export class UpdateIncidentDto {
-
   // ✅ Client peut modifier le type si encore PENDING
   @IsOptional()
   @IsEnum(IncidentType)
@@ -26,7 +25,10 @@ export class UpdateIncidentDto {
   // ✅ Client peut ajouter/modifier des pièces jointes
   @IsOptional()
   @IsArray()
-  @IsUrl({}, { each: true, message: 'Chaque pièce jointe doit être une URL valide' })
+  @IsUrl(
+    {},
+    { each: true, message: 'Chaque pièce jointe doit être une URL valide' },
+  )
   attachments?: string[];
 
   // ✅ Client peut modifier orderId si PENDING

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Client } from './client.entity';
@@ -29,7 +33,8 @@ export class ClientsService {
     });
 
     const saved = await this.clientRepository.save(client);
-    const { password, ...result } = saved;
+    const result = { ...saved };
+    delete result.password;
     return result;
   }
 
@@ -52,7 +57,8 @@ export class ClientsService {
   // ─── Profil (sans password) ───────────────────────────────────────────────
   async getProfile(id: string): Promise<Omit<Client, 'password'>> {
     const client = await this.findById(id);
-    const { password, ...result } = client;
+    const result = { ...client };
+    delete result.password;
     return result;
   }
 
@@ -69,7 +75,8 @@ export class ClientsService {
 
     Object.assign(client, dto);
     const saved = await this.clientRepository.save(client);
-    const { password, ...result } = saved;
+    const result = { ...saved };
+    delete result.password;
     return result;
   }
 

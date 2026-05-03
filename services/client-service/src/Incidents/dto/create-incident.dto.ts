@@ -1,5 +1,11 @@
 // dto/create-incident.dto.ts
-import { IsEnum, IsString, IsOptional, MinLength, IsArray } from 'class-validator';
+import {
+  IsEnum,
+  IsString,
+  IsOptional,
+  MinLength,
+  IsArray,
+} from 'class-validator';
 import { IncidentType } from '../enums/incident-type.enum';
 
 export class CreateIncidentDto {
@@ -20,5 +26,5 @@ export class CreateIncidentDto {
 
   @IsOptional()
   @IsArray()
-  attachments?: string[];     // URLs des images uploadées
+  attachments?: string[]; // URLs des images uploadées
 }

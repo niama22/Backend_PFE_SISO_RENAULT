@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
@@ -51,7 +56,9 @@ export class TokenBlacklistService implements OnModuleInit, OnModuleDestroy {
     const ttlSeconds = exp - Math.floor(Date.now() / 1000);
 
     if (ttlSeconds <= 0) {
-      this.logger.debug(`Token ${jti} déjà expiré naturellement, skip blacklist`);
+      this.logger.debug(
+        `Token ${jti} déjà expiré naturellement, skip blacklist`,
+      );
       return;
     }
 
