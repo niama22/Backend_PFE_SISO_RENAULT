@@ -42,12 +42,12 @@ services:
         strip_path: false
 
   - name: notification-service
-    url: http://notification-service:3006
+    url: http://siso_notification:3006
     routes:
       - name: notification-route
         paths:
           - /notifications
-        strip_path: false
+        strip_path: true
 
   - name: admin-service
     url: http://admin-service:3007
